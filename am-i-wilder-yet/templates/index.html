@@ -1,29 +1,898 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Am I Wilder Yet?</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #0d0d0d;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: sans-serif;
-            color: #ffffff;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Am I Wilder Yet?</title>
+  <meta name="description" content="Find out if Jason Wilder would approve of your code. Scoring based on BCIT coding standards applied across all languages." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-        h1 {
-            font-size: 2rem;
-            text-align: center;
-        }
-    </style>
+  <style>
+    /* ── CSS Variables ──────────────────────────────────────────────── */
+    :root {
+      --bg:          #0f0f0f;
+      --surface:     #1a1a1a;
+      --surface2:    #242424;
+      --text:        #e0e0e0;
+      --text-muted:  #888;
+      --accent:      #6c63ff;
+      --accent-dim:  rgba(108, 99, 255, 0.15);
+      --red:         #ff4444;
+      --orange:      #ff8c00;
+      --yellow:      #ffd700;
+      --green-light: #90ee90;
+      --green:       #00c853;
+      --border:      #333;
+      --radius:      10px;
+      --transition:  0.2s ease;
+    }
+
+    /* ── Reset & Base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 40px 16px 80px;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 44px;
+    }
+
+    .header h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .header .subtitle {
+      font-size: 1rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-bottom: 8px;
+    }
+
+    .header .note {
+      font-size: 0.78rem;
+      color: #555;
+    }
+
+    /* ── Card ───────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Input Section ──────────────────────────────────────────────── */
+    #input-card { }
+
+    .code-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    #code-input {
+      width: 100%;
+      min-height: 200px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      padding: 14px 16px;
+      resize: vertical;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none;
+    }
+
+    #code-input::placeholder { color: #555; }
+
+    #code-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    /* ── Controls Row ───────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Language selector */
+    #language-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.88rem;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: border-color var(--transition);
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    #language-select:focus { border-color: var(--accent); }
+
+    /* Intensity buttons */
+    .intensity-group {
+      flex: 1;
+      min-width: 210px;
+    }
+
+    .intensity-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .intensity-btn-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+
+    .intensity-btn {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 500;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all var(--transition);
+      text-align: center;
+    }
+
+    .intensity-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .intensity-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .intensity-hint {
+      font-size: 0.68rem;
+      color: #555;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    /* ── Submit Button ──────────────────────────────────────────────── */
+    .submit-wrap { margin-top: 20px; }
+
+    #submit-btn {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 14px 24px;
+      cursor: pointer;
+      transition: background var(--transition), opacity var(--transition), transform var(--transition);
+      letter-spacing: 0.01em;
+    }
+
+    #submit-btn:hover:not(:disabled) {
+      background: #7b74ff;
+      transform: translateY(-1px);
+    }
+
+    #submit-btn:active:not(:disabled) { transform: translateY(0); }
+
+    #submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── Error Message ──────────────────────────────────────────────── */
+    #error-msg {
+      display: none;
+      margin-top: 12px;
+      background: rgba(255, 68, 68, 0.1);
+      border: 1px solid rgba(255, 68, 68, 0.35);
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 0.88rem;
+      padding: 10px 14px;
+    }
+
+    /* ── Loading ────────────────────────────────────────────────────── */
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 32px 0 24px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-msg {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      transition: opacity 0.4s ease;
+    }
+
+    /* ── Results ────────────────────────────────────────────────────── */
+    .result-section {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      pointer-events: none;
+    }
+
+    .result-section.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* 1. Code Detected */
+    #section-detected .detected-text {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    #section-detected .detected-value {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    /* 2. Verdict */
+    #section-verdict {
+      border-left: 3px solid var(--red);
+    }
+
+    #section-verdict .roast-text {
+      font-size: 0.95rem;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    /* 3. Score */
+    .score-display {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .score-number {
+      font-size: clamp(3rem, 10vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+
+    .score-denom {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .progress-wrap {
+      background: var(--surface2);
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    #progress-bar {
+      height: 100%;
+      border-radius: 999px;
+      width: 0%;
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .verdict-label {
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* 4. Deductions */
+    .deductions-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .deductions-list li {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-radius: 7px;
+      border-left: 2px solid var(--border);
+      line-height: 1.5;
+    }
+
+    .deductions-total {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    .no-deductions {
+      font-size: 0.9rem;
+      color: var(--green);
+      font-style: italic;
+    }
+
+    /* 5. Corrected code */
+    .corrected-wrap { position: relative; }
+
+    #corrected-code-block {
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      padding-right: 80px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #cdd0d4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: auto;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    #copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    #copy-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #improvement-plan-text {
+      font-size: 0.9rem;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    /* ── Share Button ───────────────────────────────────────────────── */
+    #share-wrap {
+      margin-top: 8px;
+    }
+
+    #share-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 12px 24px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    #share-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 520px) {
+      body { padding: 24px 12px 60px; }
+      .controls { flex-direction: column; }
+      .intensity-group { min-width: unset; width: 100%; }
+    }
+  </style>
 </head>
 <body>
-    <h1>Am I Wilder Yet? - Coming Soon</h1>
+
+<div class="container">
+
+  <!-- Header -->
+  <header class="header">
+    <h1>Am I Wilder Yet?</h1>
+    <p class="subtitle">Find out if Jason Wilder would approve of your code</p>
+    <p class="note">Scoring based on BCIT coding standards by Jason Wilder, applied across all languages</p>
+  </header>
+
+  <!-- Input Card -->
+  <div class="card" id="input-card">
+
+    <label class="code-label" for="code-input">Paste your code below</label>
+    <textarea
+      id="code-input"
+      spellcheck="false"
+      autocorrect="off"
+      autocapitalize="off"
+      placeholder="Paste your code here and find out if Jason Wilder would approve..."
+    ></textarea>
+
+    <div class="controls">
+
+      <!-- Language -->
+      <div class="control-group">
+        <span class="control-label">Language</span>
+        <select id="language-select" aria-label="Select language">
+          <option value="auto">Auto Detect</option>
+          <option value="python">Python</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="java">Java</option>
+          <option value="cpp">C++</option>
+          <option value="csharp">C#</option>
+          <option value="sql">SQL</option>
+        </select>
+      </div>
+
+      <!-- Intensity -->
+      <div class="control-group intensity-group">
+        <span class="control-label">Intensity</span>
+        <div class="intensity-buttons">
+          <div class="intensity-btn-wrap">
+            <button class="intensity-btn" data-intensity="gentle" id="btn-gentle">Gentle</button>
+            <span class="intensity-hint">Wilder on a good day</span>
+          </div>
+          <div class="intensity-btn-wrap">
+            <button class="intensity-btn active" data-intensity="medium" id="btn-medium">Medium</button>
+            <span class="intensity-hint">Wilder on a normal day</span>
+          </div>
+          <div class="intensity-btn-wrap">
+            <button class="intensity-btn" data-intensity="savage" id="btn-savage">Savage</button>
+            <span class="intensity-hint">Wilder on marking day</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /controls -->
+
+    <div class="submit-wrap">
+      <button id="submit-btn">Am I Wilder Yet?</button>
+      <div id="error-msg" role="alert"></div>
+    </div>
+
+  </div><!-- /input-card -->
+
+  <!-- Loading -->
+  <div id="loading" aria-live="polite">
+    <div class="spinner"></div>
+    <div id="loading-msg">Jason Wilder is reviewing your code...</div>
+  </div>
+
+  <!-- Results -->
+
+  <!-- 1. Code Detected -->
+  <div class="card result-section" id="section-detected">
+    <div class="card-title">Code Detected</div>
+    <div class="detected-text">Wilder is reviewing:</div>
+    <div class="detected-value" id="detected-value">—</div>
+  </div>
+
+  <!-- 2. Wilder's Verdict -->
+  <div class="card result-section" id="section-verdict">
+    <div class="card-title">Wilder's Verdict</div>
+    <div class="roast-text" id="roast-text"></div>
+  </div>
+
+  <!-- 3. Wilder Score -->
+  <div class="card result-section" id="section-score">
+    <div class="card-title">Wilder Score</div>
+    <div class="score-display">
+      <span class="score-number" id="score-number">0</span>
+      <span class="score-denom"> / 100</span>
+    </div>
+    <div class="progress-wrap">
+      <div id="progress-bar"></div>
+    </div>
+    <div class="verdict-label" id="verdict-label"></div>
+  </div>
+
+  <!-- 4. What Wilder Found -->
+  <div class="card result-section" id="section-deductions">
+    <div class="card-title">What Wilder Found</div>
+    <ul class="deductions-list" id="deductions-list"></ul>
+    <div class="deductions-total" id="deductions-total"></div>
+  </div>
+
+  <!-- 5. Corrected Code / Improvement Plan -->
+  <div class="card result-section" id="section-corrected">
+    <div class="card-title" id="corrected-title">How Wilder Would Write It</div>
+
+    <!-- Code block (shown for non-Very Long) -->
+    <div class="corrected-wrap" id="corrected-code-wrap">
+      <pre id="corrected-code-block"></pre>
+      <button id="copy-btn" aria-label="Copy corrected code">Copy</button>
+    </div>
+
+    <!-- Improvement plan (shown for Very Long) -->
+    <div id="improvement-plan-wrap" style="display:none;">
+      <div id="improvement-plan-text"></div>
+    </div>
+  </div>
+
+  <!-- Share -->
+  <div class="result-section" id="share-wrap">
+    <button id="share-btn">Share Your Wilder Score</button>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  /* ── State ──────────────────────────────────────────────────────── */
+  let selectedIntensity = 'medium';
+  let loadingInterval = null;
+  let loadingMsgIndex = 0;
+  let currentScore = 0;
+  let currentVerdict = '';
+
+  const LOADING_MESSAGES = [
+    "Jason Wilder is reviewing your code...",
+    "Checking for missing JavaDoc comments...",
+    "Counting your magic numbers...",
+    "Wilder has found your System.out.println...",
+    "Checking if your parameters are final...",
+    "Your variable names are concerning Wilder...",
+    "Wilder is sighing at your code right now...",
+    "Calculating your Wilder score..."
+  ];
+
+  /* ── Element refs ───────────────────────────────────────────────── */
+  const codeInput      = document.getElementById('code-input');
+  const languageSelect = document.getElementById('language-select');
+  const submitBtn      = document.getElementById('submit-btn');
+  const errorMsg       = document.getElementById('error-msg');
+  const loading        = document.getElementById('loading');
+  const loadingMsg     = document.getElementById('loading-msg');
+
+  const sectionDetected   = document.getElementById('section-detected');
+  const sectionVerdict    = document.getElementById('section-verdict');
+  const sectionScore      = document.getElementById('section-score');
+  const sectionDeductions = document.getElementById('section-deductions');
+  const sectionCorrected  = document.getElementById('section-corrected');
+  const shareWrap         = document.getElementById('share-wrap');
+
+  const detectedValue     = document.getElementById('detected-value');
+  const roastText         = document.getElementById('roast-text');
+  const scoreNumber       = document.getElementById('score-number');
+  const progressBar       = document.getElementById('progress-bar');
+  const verdictLabel      = document.getElementById('verdict-label');
+  const deductionsList    = document.getElementById('deductions-list');
+  const deductionsTotal   = document.getElementById('deductions-total');
+  const correctedTitle    = document.getElementById('corrected-title');
+  const correctedCodeWrap = document.getElementById('corrected-code-wrap');
+  const correctedCodeBlock= document.getElementById('corrected-code-block');
+  const copyBtn           = document.getElementById('copy-btn');
+  const improvementWrap   = document.getElementById('improvement-plan-wrap');
+  const improvementText   = document.getElementById('improvement-plan-text');
+  const shareBtn          = document.getElementById('share-btn');
+
+  /* ── Score colour ───────────────────────────────────────────────── */
+  function scoreColor(score) {
+    if (score <= 25)  return 'var(--red)';
+    if (score <= 50)  return 'var(--orange)';
+    if (score <= 75)  return 'var(--yellow)';
+    if (score <= 90)  return 'var(--green-light)';
+    return 'var(--green)';
+  }
+
+  /* ── Intensity buttons ──────────────────────────────────────────── */
+  document.querySelectorAll('.intensity-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.intensity-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedIntensity = btn.dataset.intensity;
+    });
+  });
+
+  /* ── Loading messages ───────────────────────────────────────────── */
+  function startLoading() {
+    loadingMsgIndex = 0;
+    loadingMsg.textContent = LOADING_MESSAGES[0];
+    loading.style.display = 'block';
+    loadingInterval = setInterval(() => {
+      loadingMsgIndex = (loadingMsgIndex + 1) % LOADING_MESSAGES.length;
+      loadingMsg.style.opacity = '0';
+      setTimeout(() => {
+        loadingMsg.textContent = LOADING_MESSAGES[loadingMsgIndex];
+        loadingMsg.style.opacity = '1';
+      }, 200);
+    }, 2000);
+  }
+
+  function stopLoading() {
+    clearInterval(loadingInterval);
+    loading.style.display = 'none';
+  }
+
+  /* ── Show / hide error ──────────────────────────────────────────── */
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+  }
+
+  function hideError() {
+    errorMsg.style.display = 'none';
+    errorMsg.textContent = '';
+  }
+
+  /* ── Hide all result sections ───────────────────────────────────── */
+  function clearResults() {
+    [sectionDetected, sectionVerdict, sectionScore,
+     sectionDeductions, sectionCorrected, shareWrap].forEach(el => {
+      el.classList.remove('visible');
+    });
+    progressBar.style.width = '0%';
+    scoreNumber.textContent = '0';
+  }
+
+  /* ── Fade in section with delay ─────────────────────────────────── */
+  function fadeIn(el, delayMs) {
+    setTimeout(() => el.classList.add('visible'), delayMs);
+  }
+
+  /* ── Format total deductions ────────────────────────────────────── */
+  function formatTotal(total) {
+    if (total === Math.trunc(total)) return String(Math.trunc(total));
+    return String(total);
+  }
+
+  /* ── Populate results ───────────────────────────────────────────── */
+  function populateResults(data) {
+    const {
+      roast, score, verdict, code_size,
+      detected_language, language_approximate,
+      deductions, corrected_code
+    } = data;
+
+    currentScore   = score;
+    currentVerdict = verdict;
+
+    // 1. Code Detected
+    const langDisplay = language_approximate
+      ? `${detected_language} (approximate)`
+      : detected_language;
+    detectedValue.textContent = `${langDisplay} — ${code_size}`;
+
+    // 2. Verdict
+    roastText.textContent = roast;
+
+    // 3. Score
+    const color = scoreColor(score);
+    scoreNumber.textContent   = score;
+    scoreNumber.style.color   = color;
+    progressBar.style.background = color;
+    verdictLabel.textContent  = verdict;
+    verdictLabel.style.color  = color;
+
+    // 4. Deductions
+    deductionsList.innerHTML = '';
+    if (!deductions || deductions.length === 0) {
+      deductionsList.innerHTML = '<li class="no-deductions">Wilder found nothing wrong. Suspicious.</li>';
+      deductionsTotal.textContent = '';
+    } else {
+      let total = 0;
+      deductions.forEach(d => {
+        const li = document.createElement('li');
+        li.textContent = d.text;
+        deductionsList.appendChild(li);
+        total += typeof d.points === 'number' ? d.points : 0;
+      });
+      const totalStr = formatTotal(total);
+      deductionsTotal.textContent = `Total deducted: ${totalStr} points`;
+    }
+
+    // 5. Corrected code / Improvement plan
+    const isVeryLong = code_size.toLowerCase().includes('very long');
+    if (isVeryLong) {
+      correctedTitle.textContent = "Wilder's Improvement Plan";
+      correctedCodeWrap.style.display = 'none';
+      improvementWrap.style.display   = 'block';
+      improvementText.textContent     = corrected_code;
+    } else {
+      correctedTitle.textContent = "How Wilder Would Write It";
+      correctedCodeWrap.style.display = 'block';
+      improvementWrap.style.display   = 'none';
+      correctedCodeBlock.textContent  = corrected_code;
+      copyBtn.textContent = 'Copy';
+    }
+
+    // Fade in sequentially with 400ms between each
+    fadeIn(sectionDetected,   0);
+    fadeIn(sectionVerdict,    400);
+    fadeIn(sectionScore,      800);
+    fadeIn(sectionDeductions, 1200);
+    fadeIn(sectionCorrected,  1600);
+    fadeIn(shareWrap,         2000);
+
+    // Animate progress bar — trigger after a short paint delay
+    setTimeout(() => {
+      progressBar.style.width = `${score}%`;
+    }, 900);
+  }
+
+  /* ── Copy corrected code ────────────────────────────────────────── */
+  copyBtn.addEventListener('click', () => {
+    const text = correctedCodeBlock.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+    }).catch(() => {
+      copyBtn.textContent = 'Failed';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+    });
+  });
+
+  /* ── Share button ───────────────────────────────────────────────── */
+  shareBtn.addEventListener('click', () => {
+    const shareText =
+      `I scored ${currentScore}/100 on Am I Wilder Yet!\n` +
+      `Verdict: ${currentVerdict}\n` +
+      `Can your code survive Jason Wilder's standards?\n` +
+      `https://am-i-wilder-yet.up.railway.app`;
+
+    navigator.clipboard.writeText(shareText).then(() => {
+      shareBtn.textContent = 'Copied to clipboard!';
+      setTimeout(() => { shareBtn.textContent = 'Share Your Wilder Score'; }, 2000);
+    }).catch(() => {
+      shareBtn.textContent = 'Copy failed';
+      setTimeout(() => { shareBtn.textContent = 'Share Your Wilder Score'; }, 2000);
+    });
+  });
+
+  /* ── Submit ─────────────────────────────────────────────────────── */
+  submitBtn.addEventListener('click', async () => {
+    const code     = codeInput.value;
+    const language = languageSelect.value;
+    const intensity = selectedIntensity;
+
+    // Client-side validation
+    if (!code || !code.trim()) {
+      showError('Jason Wilder cannot review empty code');
+      return;
+    }
+
+    hideError();
+    clearResults();
+    submitBtn.disabled = true;
+    startLoading();
+
+    try {
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language, intensity })
+      });
+
+      const data = await res.json();
+
+      stopLoading();
+      submitBtn.disabled = false;
+
+      if (!res.ok) {
+        showError(data.error || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      populateResults(data);
+
+    } catch (err) {
+      stopLoading();
+      submitBtn.disabled = false;
+      showError('Something went wrong. Please try again.');
+    }
+  });
+
+  /* ── Allow Cmd/Ctrl+Enter to submit ─────────────────────────────── */
+  codeInput.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      submitBtn.click();
+    }
+  });
+</script>
+
 </body>
 </html>
