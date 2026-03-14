@@ -1,11 +1,13 @@
 import os
+import re
 import json
 from typing import Any
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from groq import Groq
 
-load_dotenv()
+from pathlib import Path
+load_dotenv(Path(__file__).parent / ".env")
 
 app = Flask(__name__)
 
@@ -23,6 +25,33 @@ SEED = 42
 VALID_LANGUAGES = {"auto", "python", "javascript", "typescript", "java", "cpp", "csharp", "sql"}
 VALID_INTENSITIES = {"gentle", "medium", "savage"}
 MAX_CODE_LENGTH = 10000
+
+# ---------------------------------------------------------------------------
+# Shared Java validation phrase list
+# ---------------------------------------------------------------------------
+JAVA_VALIDATION_BLOCKED_PHRASES = [
+    "no input validation",
+    "missing input validation",
+    "does not validate",
+    "doesn't validate",
+    "didn't validate",
+    "missing null check",
+    "missing null checks",
+    "no null check",
+    "no null checks",
+    "should check for null",
+    "null guard",
+    "missing edge case handling",
+    "empty string validation",
+    "missing parameter validation",
+    "validate constructor input",
+    "validate the input",
+    "validate input before",
+    "input before calling super",
+    "before calling super",
+    "without validating",
+    "without checking",
+]
 
 # ---------------------------------------------------------------------------
 # Corrected code truncation
@@ -320,9 +349,31 @@ def get_verdict(score: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Java detection helpers
+# ---------------------------------------------------------------------------
+def looks_like_java(code: str) -> bool:
+    java_signals = [
+        "public class",
+        "private class",
+        "protected class",
+        "extends ",
+        "implements ",
+        "super(",
+        "System.out",
+        "public static void main",
+    ]
+    lowered = code.lower()
+    return any(signal.lower() in lowered for signal in java_signals)
+
+
+def java_has_super_call(code: str) -> bool:
+    return "super(" in code
+
+
+# ---------------------------------------------------------------------------
 # System prompt builder
 # ---------------------------------------------------------------------------
-def build_system_prompt(intensity: str, language: str, size_bucket: str, line_count: int) -> str:
+def build_system_prompt(intensity: str, language: str, size_bucket: str, line_count: int, code: str) -> str:
     intensity_tone = {
         "gentle": (
             "Jason Wilder on a good day, encouraging but still notices everything, "
@@ -338,7 +389,12 @@ def build_system_prompt(intensity: str, language: str, size_bucket: str, line_co
     }.get(intensity, "Jason Wilder on a normal day, sarcastic and exacting, calls out every mistake")
 
     language_specific = ""
-    if language == "java":
+    is_java_context = (
+        language == "java"
+        or (language == "auto" and looks_like_java(code))
+    )
+
+    if is_java_context:
         language_specific = """
 If Java apply Jason Wilder's exact BCIT standards on top of the general mistakes above:
 - Missing JavaDoc on public methods (small)
@@ -353,7 +409,19 @@ If Java apply Jason Wilder's exact BCIT standards on top of the general mistakes
 - Constants not CAPITALIZED_WITH_UNDERSCORES (small each)
 - Method name not camelCase verb (small each)
 - Instance variables not private final (medium each)
-- Missing class level JavaDoc with @author and @version (small)"""
+- Missing class level JavaDoc with @author and @version (small)
+
+JAVA SPECIAL CASES — HIGHEST PRIORITY OVERRIDE:
+These rules override every general rule above.
+1. If a Java constructor or method contains a super(...) call, you MUST assume the parent class handles validation for arguments passed to super(...).
+2. In that case, you MUST NOT report:
+   - No input validation
+   - Missing null checks
+   - Missing edge case handling
+   for those parameters.
+3. Do not mention those issues in roast text either.
+4. Only report validation-related issues in Java when there is no super(...) call handling that responsibility.
+"""
     elif language == "python":
         language_specific = """
 If Python:
@@ -444,6 +512,19 @@ This means the code is perfect and scores 100. Do not invent mistakes just to fi
 
 MISTAKES TO LOOK FOR IN PRIORITY ORDER:
 
+LINE NUMBER RULE:
+When reporting mistakes in the "issue" field, include approximate line numbers when the location is clearly identifiable.
+Format examples:
+  "Missing type hints on add function (line 3)"
+  "No error handling in processRequest (lines 12-18)"
+  "Magic number 0.13 should be a constant (line 7)"
+Guidelines:
+- Only include line numbers when the issue corresponds to a specific location in the code.
+- Do NOT guess line numbers if you are unsure.
+- Do NOT include line numbers for general architectural issues (e.g., "class does too many things").
+- Line numbers must appear at the end of the issue description inside parentheses.
+If a mistake cannot be tied to a specific line or range with confidence, omit the line number entirely.
+
 CRITICAL — flag every one found:
 1. SQL injection — string concatenation in queries
 2. Hardcoded credentials or API keys in code
@@ -496,6 +577,72 @@ FORMATTING RULES:
 
 
 # ---------------------------------------------------------------------------
+# Java post-processing filter
+# ---------------------------------------------------------------------------
+def is_java_validation_mistake(issue: str) -> bool:
+    issue_lower = issue.lower()
+    return any(
+        phrase in issue_lower
+        for phrase in JAVA_VALIDATION_BLOCKED_PHRASES
+    )
+
+
+def enforce_java_special_cases(
+    mistakes: list,
+    language: str,
+    code: str,
+    resolved_language: str,
+) -> list:
+    is_java = (
+        language == "java"
+        or (language == "auto" and (
+            resolved_language == "Java"
+            or looks_like_java(code)
+        ))
+    )
+    if not is_java:
+        return mistakes
+    if not java_has_super_call(code):
+        return mistakes
+    filtered = []
+    for mistake in mistakes:
+        issue = mistake.get("issue", "")
+        if is_java_validation_mistake(issue):
+            continue
+        filtered.append(mistake)
+    return filtered
+
+
+def filter_roast_for_super(
+        roast: str,
+        language: str,
+        code: str,
+        resolved_language: str) -> str:
+    is_java = (
+        language == "java"
+        or (language == "auto" and (
+            resolved_language == "Java"
+            or looks_like_java(code)
+        ))
+    )
+    if not is_java:
+        return roast
+    if not java_has_super_call(code):
+        return roast
+    sentences = re.split(r'(?<=[.!?])\s+', roast)
+    filtered_sentences = []
+    for sentence in sentences:
+        sentence_lower = sentence.lower()
+        is_blocked = any(
+            phrase in sentence_lower
+            for phrase in JAVA_VALIDATION_BLOCKED_PHRASES
+        )
+        if not is_blocked:
+            filtered_sentences.append(sentence)
+    return " ".join(filtered_sentences).strip()
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 @app.route("/", methods=["GET"])
@@ -536,7 +683,9 @@ def analyze() -> Any:
     # ------------------------------------------------------------------
     # Build system prompt and call Groq
     # ------------------------------------------------------------------
-    system_prompt = build_system_prompt(intensity, language, size_bucket, line_count)
+    system_prompt = build_system_prompt(
+        intensity, language, size_bucket, line_count, code
+    )
 
     try:
         completion = client.chat.completions.create(
@@ -594,6 +743,13 @@ def analyze() -> Any:
     ai_detected: str = ai_response.get("detected_language", "")
     resolved_language, is_approximate = resolve_language(language, ai_detected)
 
+    clean_mistakes = enforce_java_special_cases(
+        clean_mistakes,
+        language,
+        code,
+        resolved_language,
+    )
+
     # ------------------------------------------------------------------
     # Scoring
     # ------------------------------------------------------------------
@@ -608,8 +764,16 @@ def analyze() -> Any:
     # ------------------------------------------------------------------
     # Final response
     # ------------------------------------------------------------------
+    roast = ai_response.get("roast", "")
+    roast = filter_roast_for_super(
+        roast,
+        language,
+        code,
+        resolved_language,
+    )
+
     return jsonify({
-        "roast":               ai_response.get("roast", ""),
+        "roast":               roast,
         "score":               score,
         "verdict":             verdict,
         "code_size":           size_bucket,
