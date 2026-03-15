@@ -619,11 +619,6 @@
     </div>
   </div>
 
-  <!-- Share -->
-  <div class="result-section" id="share-wrap">
-    <button id="share-btn">Share Your Wilder Score</button>
-  </div>
-
 </div><!-- /container -->
 
 <script>
@@ -659,7 +654,6 @@
   const sectionScore      = document.getElementById('section-score');
   const sectionDeductions = document.getElementById('section-deductions');
   const sectionCorrected  = document.getElementById('section-corrected');
-  const shareWrap         = document.getElementById('share-wrap');
 
   const detectedValue     = document.getElementById('detected-value');
   const roastText         = document.getElementById('roast-text');
@@ -674,7 +668,6 @@
   const copyBtn           = document.getElementById('copy-btn');
   const improvementWrap   = document.getElementById('improvement-plan-wrap');
   const improvementText   = document.getElementById('improvement-plan-text');
-  const shareBtn          = document.getElementById('share-btn');
 
   /* ── Score colour ───────────────────────────────────────────────── */
   function scoreColor(score) {
@@ -728,7 +721,7 @@
   /* ── Hide all result sections ───────────────────────────────────── */
   function clearResults() {
     [sectionDetected, sectionVerdict, sectionScore,
-     sectionDeductions, sectionCorrected, shareWrap].forEach(el => {
+     sectionDeductions, sectionCorrected].forEach(el => {
       el.classList.remove('visible');
     });
     progressBar.style.width = '0%';
@@ -840,7 +833,6 @@
     fadeIn(sectionScore,      800);
     fadeIn(sectionDeductions, 1200);
     fadeIn(sectionCorrected,  1600);
-    fadeIn(shareWrap,         2000);
 
     setTimeout(() => {
       animateScore(score);
@@ -861,23 +853,6 @@
     }).catch(() => {
       copyBtn.textContent = 'Failed';
       setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
-    });
-  });
-
-  /* ── Share button ───────────────────────────────────────────────── */
-  shareBtn.addEventListener('click', () => {
-    const shareText =
-      `I scored ${currentScore}/100 on Am I Wilder Yet!\n` +
-      `Verdict: ${currentVerdict}\n` +
-      `Can your code survive Jason Wilder's standards?\n` +
-      `"https://wilder-score-production.up.railway.app"`;
-
-    navigator.clipboard.writeText(shareText).then(() => {
-      shareBtn.textContent = 'Copied to clipboard!';
-      setTimeout(() => { shareBtn.textContent = 'Share Your Wilder Score'; }, 2000);
-    }).catch(() => {
-      shareBtn.textContent = 'Copy failed';
-      setTimeout(() => { shareBtn.textContent = 'Share Your Wilder Score'; }, 2000);
     });
   });
 
