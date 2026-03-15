@@ -338,10 +338,11 @@
     }
 
     .score-number {
-      font-size: clamp(3rem, 10vw, 4.5rem);
+      font-size: 80px;
       font-weight: 700;
       line-height: 1;
       letter-spacing: -2px;
+      text-shadow: 0 0 18px var(--score-glow, transparent);
     }
 
     .score-denom {
@@ -385,7 +386,7 @@
       padding: 8px 12px;
       background: var(--surface2);
       border-radius: 7px;
-      border-left: 2px solid var(--border);
+      border-left: 3px solid var(--border);
       line-height: 1.5;
     }
 
@@ -459,22 +460,25 @@
 
     #share-btn {
       width: 100%;
-      background: transparent;
-      border: 1px solid var(--border);
+      background: var(--accent);
+      border: none;
       border-radius: var(--radius);
-      color: var(--text-muted);
+      color: #fff;
       font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 500;
-      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 14px 24px;
       cursor: pointer;
-      transition: all var(--transition);
+      transition: background var(--transition), opacity var(--transition), transform var(--transition);
+      letter-spacing: 0.01em;
     }
 
     #share-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
+      background: #7b74ff;
+      transform: translateY(-1px);
     }
+
+    #share-btn:active { transform: translateY(0); }
 
     /* ── Scrollbar ──────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -486,6 +490,7 @@
       body { padding: 24px 12px 60px; }
       .controls { flex-direction: column; }
       .intensity-group { min-width: unset; width: 100%; }
+      .score-number { font-size: 64px; }
     }
   </style>
 </head>
@@ -628,6 +633,7 @@
   let loadingMsgIndex = 0;
   let currentScore = 0;
   let currentVerdict = '';
+  let scoreAnimationFrame = null;
 
   const LOADING_MESSAGES = [
     "Jason Wilder is reviewing your code...",
@@ -726,6 +732,10 @@
       el.classList.remove('visible');
     });
     progressBar.style.width = '0%';
+    if (scoreAnimationFrame) {
+      cancelAnimationFrame(scoreAnimationFrame);
+      scoreAnimationFrame = null;
+    }
     scoreNumber.textContent = '0';
   }
 
@@ -738,6 +748,30 @@
   function formatTotal(total) {
     if (total === Math.trunc(total)) return String(Math.trunc(total));
     return String(total);
+  }
+
+  function animateScore(target) {
+    if (scoreAnimationFrame) {
+      cancelAnimationFrame(scoreAnimationFrame);
+    }
+
+    const duration = 1000;
+    const start = performance.now();
+
+    function step(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      scoreNumber.textContent = String(Math.round(target * progress));
+
+      if (progress < 1) {
+        scoreAnimationFrame = requestAnimationFrame(step);
+      } else {
+        scoreNumber.textContent = String(target);
+        scoreAnimationFrame = null;
+      }
+    }
+
+    scoreNumber.textContent = '0';
+    scoreAnimationFrame = requestAnimationFrame(step);
   }
 
   /* ── Populate results ───────────────────────────────────────────── */
@@ -762,8 +796,8 @@
 
     // 3. Score
     const color = scoreColor(score);
-    scoreNumber.textContent   = score;
     scoreNumber.style.color   = color;
+    scoreNumber.style.setProperty('--score-glow', color);
     progressBar.style.background = color;
     verdictLabel.textContent  = verdict;
     verdictLabel.style.color  = color;
@@ -807,6 +841,10 @@
     fadeIn(sectionDeductions, 1200);
     fadeIn(sectionCorrected,  1600);
     fadeIn(shareWrap,         2000);
+
+    setTimeout(() => {
+      animateScore(score);
+    }, 800);
 
     // Animate progress bar — trigger after a short paint delay
     setTimeout(() => {

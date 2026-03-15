@@ -51,6 +51,15 @@ JAVA_VALIDATION_BLOCKED_PHRASES = [
     "before calling super",
     "without validating",
     "without checking",
+    "no explicit error handling",
+    "missing error handling",
+    "error handling in constructor",
+    "no error handling in constructor",
+    "constructor does not handle",
+    "constructor should handle",
+    "should throw",
+    "should validate",
+    "should check",
 ]
 
 # ---------------------------------------------------------------------------
@@ -370,6 +379,36 @@ def java_has_super_call(code: str) -> bool:
     return "super(" in code
 
 
+def looks_like_python(code: str) -> bool:
+    signals = ["def ",
+               "import ",
+               "print(",
+                "elif ",
+                "lambda ",
+                "self."]
+    return any(s in code for s in signals)
+
+
+def looks_like_js(code: str) -> bool:
+    signals = ["const ", "let ", "var ", "function ", "=>", "console.log", "document.", "require(", "export "]
+    return any(s in code for s in signals)
+
+
+def looks_like_sql(code: str) -> bool:
+    signals = ["SELECT ", "select ", "INSERT ", "UPDATE ", "DELETE ", "FROM ", "WHERE ", "JOIN "]
+    return any(s in code for s in signals)
+
+
+def looks_like_cpp(code: str) -> bool:
+    signals = ["#include", "std::", "cout", "cin", "->", "::", "nullptr"]
+    return any(s in code for s in signals)
+
+
+def looks_like_csharp(code: str) -> bool:
+    signals = ["using System", "namespace ", "Console.Write", "string[]", "static void Main", "var "]
+    return any(s in code for s in signals)
+
+
 # ---------------------------------------------------------------------------
 # System prompt builder
 # ---------------------------------------------------------------------------
@@ -393,6 +432,21 @@ def build_system_prompt(intensity: str, language: str, size_bucket: str, line_co
         language == "java"
         or (language == "auto" and looks_like_java(code))
     )
+    is_python_context = language == "python" or (
+        language == "auto" and looks_like_python(code)
+    )
+    is_js_context = language in ("javascript", "typescript") or (
+        language == "auto" and looks_like_js(code)
+    )
+    is_sql_context = language == "sql" or (
+        language == "auto" and looks_like_sql(code)
+    )
+    is_cpp_context = language == "cpp" or (
+        language == "auto" and looks_like_cpp(code)
+    )
+    is_csharp_context = language == "csharp" or (
+        language == "auto" and looks_like_csharp(code)
+    )
 
     if is_java_context:
         language_specific = """
@@ -403,7 +457,6 @@ If Java apply Jason Wilder's exact BCIT standards on top of the general mistakes
 - Method does more than one thing (medium each)
 - Class does more than one thing (big each)
 - Concrete collection type e.g. ArrayList not List (medium each)
-- Variables not declared then initialized (small each)
 - System.out.print in final code (small each)
 - Missing braces on single line conditions (small each)
 - Constants not CAPITALIZED_WITH_UNDERSCORES (small each)
@@ -421,8 +474,15 @@ These rules override every general rule above.
    for those parameters.
 3. Do not mention those issues in roast text either.
 4. Only report validation-related issues in Java when there is no super(...) call handling that responsibility.
+5. The numeric values 0, 1, and -1 used in comparisons, counters, loop indices, or simple calculations are normal Java control values and MUST NOT be reported as magic numbers.
+6. Variable declaration separated from initialization is acceptable Java style and MUST NOT be reported as a mistake.
+7. Temporary or intermediate variables created to improve readability MUST NOT be reported as unnecessary.
+8. Standard Java boilerplate methods including toString(), equals(), hashCode(), and standard constructors are expected and MUST NOT be reported as architectural violations.
+9. Java API constants such as Calendar.YEAR and Calendar.DAY_OF_YEAR are library constants and MUST NOT be reported as magic numbers.
+10. Only report magic numbers in Java when the value is a meaningful domain constant such as a tax rate, limit, threshold, configuration value, or business rule.
+11. If you are unsure whether a Java issue is a false positive, do NOT include it in the mistakes array.
 """
-    elif language == "python":
+    elif is_python_context:
         language_specific = """
 If Python:
 - Missing type hints (small each)
@@ -431,28 +491,28 @@ If Python:
 - PEP 8 violations (small each)
 - Constants not UPPERCASE (small each)
 - Bare except clauses (medium each)"""
-    elif language in ("javascript", "typescript"):
+    elif is_js_context:
         language_specific = """
 If JavaScript or TypeScript:
 - var instead of const or let (small each)
 - console.log left in code (small each)
 - Missing TypeScript type annotations (small each)
 - Raw promises instead of async/await (small each)"""
-    elif language == "cpp":
+    elif is_cpp_context:
         language_specific = """
 If C++:
 - Raw pointers instead of smart pointers (big each)
 - Missing const correctness (small each)
 - Memory leaks (critical each)
 - Missing RAII principles (big each)"""
-    elif language == "csharp":
+    elif is_csharp_context:
         language_specific = """
 If C#:
 - Missing XML documentation (small each)
 - Public fields instead of properties (medium each)
 - Missing readonly (small each)
 - Interface not prefixed with I (small each)"""
-    elif language == "sql":
+    elif is_sql_context:
         language_specific = """
 If SQL:
 - Lowercase keywords (small each)
@@ -530,7 +590,7 @@ CRITICAL — flag every one found:
 2. Hardcoded credentials or API keys in code
 3. No input sanitization on user data
 4. Catching all exceptions and ignoring silently
-5. Memory management issues — leaks in C or C++
+5. Memory management issues in C or C++
 6. Storing sensitive data insecurely
 
 BIG — flag every one found:
@@ -544,18 +604,18 @@ BIG — flag every one found:
 MEDIUM — flag every one found:
 13. Function does more than one thing
 14. No input validation
-15. Missing edge case handling — null, empty, zero division
+15. Missing edge case handling
 16. Repeated code that should be its own function
 17. Wrong data types used
 18. Hardcoded values that should be configurable
 
 SMALL — flag every one found:
-19. Bad variable names — x, temp, data, single letters
+19. Bad variable names
 20. Magic numbers instead of named constants
 21. Missing docstrings or comments
 22. Debug print statements left in code
-23. Abbreviations — addr, qty, usr, wt
-24. Inconsistent formatting and spacing
+23. Abbreviations in names
+24. Inconsistent formatting
 25. Unclear or misleading function names
 26. Missing blank lines between logical sections
 {language_specific}
@@ -640,6 +700,74 @@ def filter_roast_for_super(
         if not is_blocked:
             filtered_sentences.append(sentence)
     return " ".join(filtered_sentences).strip()
+
+
+def try_add_line_number(code: str, issue: str) -> str:
+    if "(line " in issue or "(lines " in issue:
+        return issue
+
+    lines = code.splitlines()
+    issue_lower = issue.lower()
+
+    if "system.out.print" in issue_lower:
+        for i, line in enumerate(lines, 1):
+            if "System.out.print" in line:
+                return f"{issue.strip()} (line {i})"
+
+    if "magic number" in issue_lower:
+        numbers = re.findall(r"-?\d+(?:\.\d+)?", issue)
+        for number in numbers:
+            if number in {"0", "1", "-1"}:
+                continue
+            for i, line in enumerate(lines, 1):
+                if re.search(rf"(?<![\w.]){re.escape(number)}(?![\w.])", line):
+                    return f"{issue.strip()} (line {i})"
+
+    if "javadoc" in issue_lower:
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("public ") or stripped.startswith("protected "):
+                prev_lines = [l.strip() for l in lines[:i - 1] if l.strip()]
+                if prev_lines and not any(
+                    l.startswith("/**") for l in prev_lines[-3:]
+                ):
+                    return f"{issue.strip()} (line {i})"
+
+    if "camelcase" in issue_lower or "naming" in issue_lower:
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if (
+                stripped.startswith("public ")
+                and "(" in stripped
+                and not stripped.startswith("public class")
+            ):
+                return f"{issue.strip()} (line {i})"
+
+    if "brace" in issue_lower:
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if (
+                re.match(r"^(if|for|while)\s*\(", stripped)
+                and not stripped.endswith("{")
+            ):
+                return f"{issue.strip()} (line {i})"
+
+    if "final" in issue_lower and "parameter" in issue_lower:
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if (
+                "(" in stripped
+                and ")" in stripped
+                and "final" not in stripped
+                and (
+                    stripped.startswith("public ")
+                    or stripped.startswith("private ")
+                    or stripped.startswith("protected ")
+                )
+            ):
+                return f"{issue.strip()} (line {i})"
+
+    return issue
 
 
 # ---------------------------------------------------------------------------
@@ -749,6 +877,8 @@ def analyze() -> Any:
         code,
         resolved_language,
     )
+    for mistake in clean_mistakes:
+        mistake["issue"] = try_add_line_number(code, mistake["issue"])
 
     # ------------------------------------------------------------------
     # Scoring
